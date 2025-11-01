@@ -1,0 +1,5 @@
+{
+  "name": "GPU Profitability Calculator",
+  "description": "Analyze profitability for running AI models (LLM, Image, Video) on various GPUs.",
+  "requestFramePermissions": []
+}
