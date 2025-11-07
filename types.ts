@@ -108,3 +108,29 @@ export interface TopConfig {
   yourPrice: number;
   throughput: number;
 }
+
+// Types for Voice Calculator
+export interface VoiceModel {
+  name: string;
+  category: string;
+  competitorPrice: number;
+  jobsPerHour: {
+    [gpuName: string]: number;
+  };
+}
+
+export interface VoiceCalculationResult {
+  gpu: string;
+  modelName: string;
+  category: string;
+  jobsPerHour: number;
+  gpuCostPerHour: number;
+  costPerJob: number;
+  competitorPrice: number;
+  yourPricePerJob: number;
+  profitPerJob: number;
+  profitPerHour: number;
+  monthlyProfit: number;
+  revenuePerHour: number;
+  monthlyRevenue: number;
+}

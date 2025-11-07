@@ -1,4 +1,4 @@
-import { LlmGpuData, LlmModel, IvGpuData, ImageModelData, VideoModelData, CompetitorData } from './types';
+import { LlmGpuData, LlmModel, IvGpuData, ImageModelData, VideoModelData, CompetitorData, VoiceModel } from './types';
 
 // Constants for LLM Calculator
 export const LLM_GPU_DATA: LlmGpuData = {
@@ -97,3 +97,40 @@ export const COMPETITORS: CompetitorData = {
     'Replicate': { sdxl: 0.0025, flux: 0.008, turbo: 0.0016, svd: 0.30, animatediff: 0.10 },
     'Runway': { sdxl: 0.05, flux: 0.08, turbo: 0.05, svd: 0.60, animatediff: 0.25 }
 };
+
+// Constants for Voice Calculator
+export const VOICE_MODELS: VoiceModel[] = [
+  {
+    name: 'Whisper-v3 (OpenAI)',
+    category: 'STT / Transcription',
+    competitorPrice: 0.15, // ElevenLabs Price/job
+    jobsPerHour: {
+      "H100 NVL": 300,
+      "H100 SXM": 200,
+      "L40S": 133,
+      "A100": 150,
+    }
+  },
+  {
+    name: 'XTTS-v2 (Coqui AI)',
+    category: 'Voice-Clone / TTS',
+    competitorPrice: 0.18,
+    jobsPerHour: {
+      "H100 NVL": 120,
+      "H100 SXM": 100,
+      "L40S": 75,
+      "A100": 90,
+    }
+  },
+  {
+    name: 'Stable Audio Open 1.0 (Stability AI)',
+    category: 'Sound Effects / Music',
+    competitorPrice: 0.25,
+    jobsPerHour: {
+      "H100 NVL": 60,
+      "H100 SXM": 20,
+      "L40S": 10,
+      "A100": 15,
+    }
+  }
+];

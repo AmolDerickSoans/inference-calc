@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { LLM_GPU_DATA, LLM_MODELS, IV_GPU_DATA, IMAGE_MODELS, VIDEO_MODELS } from './constants';
-import { LlmCalculationResult, LlmModel, IvCalculationResult, IvGpuData, ImageModelData, VideoModelData } from './types';
+import { LLM_GPU_DATA, LLM_MODELS, IV_GPU_DATA, IMAGE_MODELS, VIDEO_MODELS, VOICE_MODELS } from './constants';
+import { LlmCalculationResult, LlmModel, IvCalculationResult, IvGpuData, ImageModelData, VideoModelData, VoiceModel, VoiceCalculationResult } from './types';
 import ProfitabilityGraph from './components/ProfitabilityGraph';
 
 // --- HELPER COMPONENTS ---
@@ -10,7 +10,7 @@ const InfoTooltip = ({ text }: { text: string }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400 cursor-pointer" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
     </svg>
-    <div className="absolute bottom-full mb-2 w-64 p-2 bg-gray-800 text-white text-xs rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 pointer-events-none">
+    <div className="absolute bottom-full mb-2 w-72 p-2 bg-gray-800 text-white text-xs rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 pointer-events-none">
       {text}
     </div>
   </div>
@@ -104,8 +104,47 @@ const calculateIvResult = (
     };
 };
 
+const calculateVoiceResult = (
+  gpu: string,
+  model: VoiceModel,
+  utilization: number,
+  markup: number
+): VoiceCalculationResult | null => {
+  const gpuInfo = LLM_GPU_DATA[gpu as keyof typeof LLM_GPU_DATA];
+  const jobsPerHour = model.jobsPerHour[gpu];
+
+  if (!gpuInfo || !jobsPerHour) return null;
+
+  const gpuCostPerHour = gpuInfo.cost;
+  const costPerJob = gpuCostPerHour / jobsPerHour;
+  const yourPricePerJob = costPerJob * markup;
+  const profitPerJob = yourPricePerJob - costPerJob;
+  const profitPerHour = profitPerJob * jobsPerHour;
+  const utilFactor = utilization / 100;
+  const monthlyProfit = profitPerHour * 24 * 30 * utilFactor;
+  
+  const revenuePerHour = yourPricePerJob * jobsPerHour;
+  const monthlyRevenue = revenuePerHour * 24 * 30 * utilFactor;
+
+  return {
+    gpu,
+    modelName: model.name,
+    category: model.category,
+    jobsPerHour,
+    gpuCostPerHour,
+    costPerJob,
+    competitorPrice: model.competitorPrice,
+    yourPricePerJob,
+    profitPerJob,
+    profitPerHour,
+    monthlyProfit,
+    revenuePerHour,
+    monthlyRevenue,
+  };
+};
+
 const App: React.FC = () => {
-  const [mode, setMode] = useState<'imageVideo' | 'llm'>('imageVideo');
+  const [mode, setMode] = useState<'imageVideo' | 'llm' | 'voice'>('imageVideo');
 
   // --- LLM State ---
   const [llmUtilization, setLlmUtilization] = useState<number>(80);
@@ -115,6 +154,10 @@ const App: React.FC = () => {
   const [modelType, setModelType] = useState<'image' | 'video'>('image');
   const [ivUtilization, setIvUtilization] = useState(70);
   const [ivMarkup, setIvMarkup] = useState(1.5);
+
+  // --- Voice State ---
+  const [voiceUtilization, setVoiceUtilization] = useState(70);
+  const [voiceMarkup, setVoiceMarkup] = useState(2.5);
 
   // Reset model selection when model type changes
   useEffect(() => {
@@ -132,6 +175,21 @@ const App: React.FC = () => {
     return configs.sort((a,b) => b.profitLossPerMonth - a.profitLossPerMonth);
   }, [llmUtilization, llmMarkup]);
   
+  const llmGraphData = useMemo(() => {
+    if (!llmConfigs || llmConfigs.length === 0) return [];
+    const topConfig = llmConfigs[0];
+    if (!topConfig) return [];
+    
+    const data = [];
+    for (let i = 1; i <= 100; i++) {
+      data.push({
+        utilization: i,
+        monthlyProfit: topConfig.profitLossPerHour * 24 * 30 * (i / 100),
+      });
+    }
+    return data;
+  }, [llmConfigs]);
+
   const ivConfigs = useMemo(() => {
     const configs: any[] = [];
     const gpus = Object.keys(IV_GPU_DATA);
@@ -156,12 +214,56 @@ const App: React.FC = () => {
     return configs.sort((a, b) => b.profitPerMonth - a.profitPerMonth);
   }, [ivUtilization, ivMarkup, modelType]);
 
+  const ivGraphData = useMemo(() => {
+    if (!ivConfigs || ivConfigs.length === 0) return [];
+    const topConfig = ivConfigs[0];
+    if (!topConfig) return [];
+
+    const data = [];
+    for (let i = 1; i <= 100; i++) {
+      data.push({
+        utilization: i,
+        monthlyProfit: topConfig.profitPerHour * 24 * 30 * (i / 100),
+      });
+    }
+    return data;
+  }, [ivConfigs]);
+
+  const voiceConfigs = useMemo(() => {
+    const configs: VoiceCalculationResult[] = [];
+    Object.keys(LLM_GPU_DATA).forEach(gpuKey => {
+      VOICE_MODELS.forEach(model => {
+        if (model.jobsPerHour[gpuKey]) { // Ensure GPU is compatible with model
+          const result = calculateVoiceResult(gpuKey, model, voiceUtilization, voiceMarkup);
+          if (result) configs.push(result);
+        }
+      });
+    });
+    return configs.sort((a, b) => b.monthlyProfit - a.monthlyProfit);
+  }, [voiceUtilization, voiceMarkup]);
+
+  const voiceGraphData = useMemo(() => {
+    if (!voiceConfigs || voiceConfigs.length === 0) return [];
+    const topConfig = voiceConfigs[0];
+    if (!topConfig) return [];
+
+    const data = [];
+    for (let i = 1; i <= 100; i++) {
+      data.push({
+        utilization: i,
+        monthlyProfit: topConfig.profitPerHour * 24 * 30 * (i / 100),
+      });
+    }
+    return data;
+  }, [voiceConfigs]);
+
   const renderForm = () => {
     const isIvMode = mode === 'imageVideo';
-    const utilization = isIvMode ? ivUtilization : llmUtilization;
-    const setUtilization = isIvMode ? setIvUtilization : setLlmUtilization;
-    const markup = isIvMode ? ivMarkup : llmMarkup;
-    const setMarkup = isIvMode ? setIvMarkup : setLlmMarkup;
+    const isLlmMode = mode === 'llm';
+    const utilization = isIvMode ? ivUtilization : isLlmMode ? llmUtilization : voiceUtilization;
+    const setUtilization = isIvMode ? setIvUtilization : isLlmMode ? setLlmUtilization : setVoiceUtilization;
+    const markup = isIvMode ? ivMarkup : isLlmMode ? llmMarkup : voiceMarkup;
+    const setMarkup = isIvMode ? setIvMarkup : isLlmMode ? setLlmMarkup : setVoiceMarkup;
     
     return (
       <Card>
@@ -195,12 +297,12 @@ const App: React.FC = () => {
       const tableHeaders = [
           { key: 'gpu', label: 'GPU' },
           { key: 'model', label: 'Model' },
-          { key: 'provider', label: 'Provider' },
-          { key: 'throughput', label: `Units/Hr`, tooltip: "Units generated per hour at 100% utilization." },
-          { key: 'costPerUnit', label: `Cost/${unit}`, tooltip: "Your cost to generate one unit = (GPU Cost per Hour / Units per Hour)." },
-          { key: 'yourPrice', label: `Your Price/${unit}`, tooltip: `Your selling price per unit = (Cost per ${unit}) * Markup.` },
-          { key: 'profitPerHour', label: 'Profit/Hr', tooltip: "Hourly profit at 100% utilization." },
-          { key: 'profitPerMonth', label: 'Monthly Profit', tooltip: "Estimated monthly profit = (Profit per Hour) * 24 * 30 * (Utilization % / 100)." },
+          { key: 'provider', label: 'Provider', tooltip: "The cloud company providing the GPU. Different providers have different hourly rates, which affects your costs." },
+          { key: 'throughput', label: `${unit}s/Hr`, tooltip: `Number of ${unit.toLowerCase()}s this GPU can generate per hour at 100% utilization. This is a measure of raw performance.` },
+          { key: 'costPerUnit', label: `Cost/${unit}`, tooltip: `Your cost to generate one ${unit.toLowerCase()} = (GPU Cost per Hour / ${unit}s per Hour).` },
+          { key: 'yourPrice', label: `Your Price/${unit}`, tooltip: `Your selling price per ${unit.toLowerCase()} = (Cost per ${unit.toLowerCase()}) * Markup.` },
+          { key: 'profitPerHour', label: 'Profit/Hr', tooltip: "Hourly profit at 100% utilization. This shows the maximum potential profit before accounting for utilization." },
+          { key: 'profitPerMonth', label: 'Monthly Profit', tooltip: `Estimated monthly profit = (Profit per Hour) * 24 * 30 * (Your Utilization % / 100). This is your realistic projected earning.` },
       ];
       const topConfig = ivConfigs[0];
 
@@ -217,6 +319,21 @@ const App: React.FC = () => {
                   <p className="text-4xl font-bold text-blue-600">${topConfig?.profitPerMonth?.toLocaleString(undefined, { maximumFractionDigits: 0 }) ?? '0'}</p>
               </Card>
           </div>
+          
+          {ivGraphData.length > 0 && (
+              <Card>
+                  <ProfitabilityGraph
+                      title={`Profit vs. Utilization for: ${ivConfigs[0].gpu} - ${ivConfigs[0].model}`}
+                      data={ivGraphData}
+                      xKey="utilization"
+                      yKey="monthlyProfit"
+                      xLabel="Utilization"
+                      yLabel="Monthly Profit"
+                      currentXValue={ivUtilization}
+                      xUnit="%"
+                  />
+              </Card>
+          )}
 
           <div className="bg-white border border-gray-200 rounded-xl p-1 w-full overflow-x-auto shadow-sm">
               <h3 className="text-lg font-semibold text-gray-800 my-4 px-4">All {modelType === 'image' ? 'Image' : 'Video'} Model Configurations</h3>
@@ -234,7 +351,7 @@ const App: React.FC = () => {
                       {ivConfigs.map((config, index) => (
                           <tr key={index} className={index < 5 ? 'bg-green-50' : ''}>
                               <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-900">{config.gpu}</td>
-                              <td className="px-4 py-3 whitespace-nowrap text-gray-600">{config.model}</td>
+                              <td className="px-4 py-3 text-gray-600">{config.model}</td>
                               <td className="px-4 py-3 whitespace-nowrap text-gray-500 capitalize">{config.provider.replace('_', ' ')}</td>
                               <td className="px-4 py-3 whitespace-nowrap text-gray-500 text-right">{Math.round(config.throughput)}</td>
                               <td className="px-4 py-3 whitespace-nowrap text-gray-500 text-right">${config.costPerUnit.toFixed(5)}</td>
@@ -276,6 +393,22 @@ const App: React.FC = () => {
                 <p className="text-4xl font-bold text-blue-600">${topConfig?.profitLossPerMonth?.toLocaleString(undefined, { maximumFractionDigits: 0 }) ?? '0'}</p>
             </Card>
         </div>
+        
+        {llmGraphData.length > 0 && (
+            <Card>
+                <ProfitabilityGraph
+                    title={`Profit vs. Utilization for: ${llmConfigs[0].gpu} - ${llmConfigs[0].modelName}`}
+                    data={llmGraphData}
+                    xKey="utilization"
+                    yKey="monthlyProfit"
+                    xLabel="Utilization"
+                    yLabel="Monthly Profit"
+                    currentXValue={llmUtilization}
+                    xUnit="%"
+                />
+            </Card>
+        )}
+
         <div className="bg-white border border-gray-200 rounded-xl p-1 w-full overflow-x-auto shadow-sm">
               <h3 className="text-lg font-semibold text-gray-800 my-4 px-4">All Language Model Configurations</h3>
               <table className="min-w-full text-sm text-left">
@@ -307,19 +440,96 @@ const App: React.FC = () => {
       </>
     );
   };
+  
+  const renderVoiceCalculator = () => {
+    const tableHeaders = [
+      { key: 'gpu', label: 'GPU' },
+      { key: 'category', label: 'Category' },
+      { key: 'modelName', label: 'Model' },
+      { key: 'jobsPerHour', label: 'Jobs/hr', tooltip: "Number of jobs (e.g., transcriptions, generations) this GPU can complete per hour at 100% utilization." },
+      { key: 'costPerJob', label: 'Cost/Job', tooltip: "Your cost to complete one job = (GPU Cost per Hour / Jobs per Hour)." },
+      { key: 'yourPricePerJob', label: 'Your Price/Job', tooltip: "Your selling price per job = (Cost per Job) * Markup." },
+      { key: 'profitPerHour', label: 'Profit/Hr', tooltip: "Hourly profit at 100% utilization. = (Your Price/Job - Cost/Job) * Jobs/hr." },
+      { key: 'monthlyProfit', label: 'Monthly Profit', tooltip: "Estimated monthly profit = (Profit per Hour) * 24 * 30 * (Your Utilization %)." },
+      { key: 'monthlyRevenue', label: 'Monthly Revenue', tooltip: "Estimated monthly revenue = (Revenue per Hour) * 24 * 30 * (Your Utilization %)." },
+    ];
+    const topConfig = voiceConfigs[0];
+    
+    return (
+      <>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card className={topConfig?.monthlyProfit > 0 ? 'bg-green-50' : 'bg-red-50'}>
+                <p className="text-sm text-gray-500">Top Monthly Profit (GPU)</p>
+                <p className="text-2xl font-bold text-gray-800">{topConfig?.gpu || 'N/A'}</p>
+                <p className="text-sm text-gray-600">{topConfig?.modelName || 'N/A'}</p>
+            </Card>
+            <Card>
+                <p className="text-sm text-gray-500">Top Monthly Profit (Est.)</p>
+                <p className="text-4xl font-bold text-blue-600">${topConfig?.monthlyProfit?.toLocaleString(undefined, { maximumFractionDigits: 0 }) ?? '0'}</p>
+            </Card>
+        </div>
+        
+        {voiceGraphData.length > 0 && (
+            <Card>
+                <ProfitabilityGraph
+                    title={`Profit vs. Utilization for: ${voiceConfigs[0].gpu} - ${voiceConfigs[0].modelName}`}
+                    data={voiceGraphData}
+                    xKey="utilization"
+                    yKey="monthlyProfit"
+                    xLabel="Utilization"
+                    yLabel="Monthly Profit"
+                    currentXValue={voiceUtilization}
+                    xUnit="%"
+                />
+            </Card>
+        )}
+
+        <div className="bg-white border border-gray-200 rounded-xl p-1 w-full overflow-x-auto shadow-sm">
+              <h3 className="text-lg font-semibold text-gray-800 my-4 px-4">All Voice Model Configurations</h3>
+              <table className="min-w-full text-sm text-left">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr>
+                          {tableHeaders.map(h => (
+                              <th key={h.key} scope="col" className="px-4 py-3 font-medium text-gray-500 uppercase tracking-wider">
+                                  <div className="flex items-center">{h.label}{h.tooltip && <InfoTooltip text={h.tooltip} />}</div>
+                              </th>
+                          ))}
+                      </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                      {voiceConfigs.map((config, index) => (
+                          <tr key={index} className={index < 5 ? 'bg-green-50' : ''}>
+                              <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-900">{config.gpu}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-gray-600">{config.category}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-gray-600">{config.modelName}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-gray-500 text-right">{Math.round(config.jobsPerHour)}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-gray-500 text-right">${config.costPerJob.toFixed(5)}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-gray-500 text-right">${config.yourPricePerJob.toFixed(5)}</td>
+                              <td className={`px-4 py-3 whitespace-nowrap font-semibold text-right ${config.profitPerHour >= 0 ? 'text-green-600' : 'text-red-600'}`}>${config.profitPerHour.toFixed(2)}</td>
+                              <td className={`px-4 py-3 whitespace-nowrap font-bold text-right ${config.monthlyProfit >= 0 ? 'text-green-700' : 'text-red-700'}`}>${config.monthlyProfit.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-gray-500 text-right">${config.monthlyRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                          </tr>
+                      ))}
+                  </tbody>
+              </table>
+          </div>
+      </>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800 font-sans p-4 sm:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
         <header className="text-center mb-8">
           <h1 className="text-4xl md:text-5xl font-bold text-gray-900 tracking-tight">GPU Profitability Calculator</h1>
-          <p className="text-gray-500 mt-2">Analyze profitability for Language, Image, and Video models.</p>
+          <p className="text-gray-500 mt-2">Analyze profitability for Language, Image, Video, and Voice models.</p>
         </header>
         
         <div className="flex justify-center mb-8">
             <div className="bg-gray-200/80 border border-gray-300 p-1 rounded-full flex items-center space-x-1">
-                 <button onClick={() => setMode('imageVideo')} className={`px-6 py-2 rounded-full text-sm font-semibold transition ${mode === 'imageVideo' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-300/50'}`}>Image & Video</button>
-                 <button onClick={() => setMode('llm')} className={`px-6 py-2 rounded-full text-sm font-semibold transition ${mode === 'llm' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-300/50'}`}>Language Models</button>
+                 <button onClick={() => setMode('imageVideo')} className={`px-5 py-2 rounded-full text-sm font-semibold transition ${mode === 'imageVideo' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-300/50'}`}>Image & Video</button>
+                 <button onClick={() => setMode('llm')} className={`px-5 py-2 rounded-full text-sm font-semibold transition ${mode === 'llm' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-300/50'}`}>Language</button>
+                 <button onClick={() => setMode('voice')} className={`px-5 py-2 rounded-full text-sm font-semibold transition ${mode === 'voice' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-300/50'}`}>Voice</button>
             </div>
         </div>
 
@@ -330,7 +540,9 @@ const App: React.FC = () => {
               </div>
           </div>
           <div className="flex-grow space-y-6 mt-8 lg:mt-0 w-full lg:w-2/3">
-             {mode === 'llm' ? renderLlmCalculator() : renderIvCalculator()}
+             {mode === 'llm' && renderLlmCalculator()}
+             {mode === 'imageVideo' && renderIvCalculator()}
+             {mode === 'voice' && renderVoiceCalculator()}
           </div>
         </div>
       </div>
