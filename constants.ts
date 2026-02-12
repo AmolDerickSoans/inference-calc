@@ -69,23 +69,30 @@ export const VOICE_MODELS: VoiceModel[] = [
 
 // --- NEW GPU ESTIMATOR CONSTANTS ---
 export const ESTIMATOR_GPUS: EstimatorGpu[] = [
-  { name: 'RTX 6000 Ada', vram: 48, bandwidth: 0.96, fp16: 91, price: 6800 },
-  { name: 'RTX 4090', vram: 24, bandwidth: 1.0, fp16: 83, price: 1600 },
-  { name: 'A100 80GB', vram: 80, bandwidth: 2.04, fp16: 312, price: 15000 },
-  { name: 'H100 80GB', vram: 80, bandwidth: 3.35, fp16: 989, fp8: 1979, price: 30000 },
-  { name: 'H200 141GB', vram: 141, bandwidth: 4.8, fp16: 989, fp8: 1979, price: 45000 },
-  { name: 'B200 192GB', vram: 192, bandwidth: 8.0, fp16: 2250, fp8: 4500, fp4: 9000, price: 50000 },
-  { name: 'B300 288GB', vram: 288, bandwidth: 8.0, fp16: 2250, fp8: 4500, fp4: 14000, price: 55000 },
+  // RTX PRO 6000 Blackwell Server (96GB GDDR7 ECC, up to 600W)
+  // hourlyRate = $1.10 (user-specified offering price)
+  { name: 'RTX PRO 6000 Blackwell Server', vram: 96, bandwidth: 1.597, fp4: 4000, price: 13500, hourlyRate: 1.10 },
+
+  // hourlyRate = 5-year CapEx amortization (price / 43800hrs) + estimated power & overhead
+  { name: 'RTX 4090', vram: 24, bandwidth: 1.0, fp16: 83, price: 1600, hourlyRate: 0.09 },
+  { name: 'A100 80GB', vram: 80, bandwidth: 2.04, fp16: 312, price: 15000, hourlyRate: 0.40 },
+  { name: 'H100 80GB', vram: 80, bandwidth: 3.35, fp16: 989, fp8: 1979, price: 30000, hourlyRate: 0.79 },
+  { name: 'H200 141GB', vram: 141, bandwidth: 4.8, fp16: 989, fp8: 1979, price: 45000, hourlyRate: 1.14 },
+  { name: 'B200 192GB', vram: 192, bandwidth: 8.0, fp16: 2250, fp8: 4500, fp4: 9000, price: 50000, hourlyRate: 1.29 },
+  { name: 'B300 288GB', vram: 288, bandwidth: 8.0, fp16: 2250, fp8: 4500, fp4: 14000, price: 55000, hourlyRate: 1.41 },
 ];
 
 export const ESTIMATOR_MODELS: EstimatorModel[] = [
-  { name: 'Kimi K2 (Thinking)', params: 1000, activeParams: 32, tps: { 'RTX 6000 Ada': 0, 'H100 80GB': 15, 'H200 141GB': 25, 'B200 192GB': 40, 'B300 288GB': 50 } },
-  { name: 'DeepSeek R1 (Full)', params: 671, activeParams: 671, tps: { 'RTX 6000 Ada': 0, 'H100 80GB': 12, 'H200 141GB': 25, 'B200 192GB': 45, 'B300 288GB': 55 } },
-  { name: 'DeepSeek V3', params: 671, activeParams: 37, tps: { 'RTX 6000 Ada': 0, 'H100 80GB': 15, 'H200 141GB': 30, 'B200 192GB': 50, 'B300 288GB': 65 } },
-  { name: 'Qwen3-235B-A22B', params: 235, activeParams: 22, tps: { 'RTX 6000 Ada': 5, 'H100 80GB': 40, 'H200 141GB': 50, 'B200 192GB': 75, 'B300 288GB': 90 } },
-  { name: 'Qwen2.5-72B', params: 72, activeParams: 72, tps: { 'RTX 6000 Ada': 15, 'H100 80GB': 55, 'H200 141GB': 55, 'B200 192GB': 80, 'B300 288GB': 100 } },
-  { name: 'Llama 3 8B', params: 8, activeParams: 8, tps: { 'RTX 6000 Ada': 131, 'H100 80GB': 90, 'H200 141GB': 110, 'B200 192GB': 150, 'B300 288GB': 180 } },
-  { name: 'Llama 3.3 70B', params: 70, activeParams: 70, tps: { 'RTX 6000 Ada': 18, 'H100 80GB': 25, 'H200 141GB': 35, 'B200 192GB': 50, 'B300 288GB': 65 } },
-  { name: 'Llama 3.1 405B', params: 405, activeParams: 405, tps: { 'RTX 6000 Ada': 0, 'H100 80GB': 10, 'H200 141GB': 18, 'B200 192GB': 30, 'B300 288GB': 40 } },
-  { name: 'Mistral Large 3', params: 123, activeParams: 123, tps: { 'RTX 6000 Ada': 8, 'H100 80GB': 20, 'H200 141GB': 30, 'B200 192GB': 45, 'B300 288GB': 55 } },
+  // Added (official: 1T total params, 32B activated params)
+  { name: 'Kimi K2.5 (Thinking)', params: 1000, activeParams: 32, tps: { 'RTX PRO 6000 Blackwell Server': 8, 'H100 80GB': 15, 'H200 141GB': 25, 'B200 192GB': 40, 'B300 288GB': 50 } },
+
+  { name: 'Kimi K2 (Thinking)', params: 1000, activeParams: 32, tps: { 'RTX PRO 6000 Blackwell Server': 8, 'H100 80GB': 15, 'H200 141GB': 25, 'B200 192GB': 40, 'B300 288GB': 50 } },
+  { name: 'DeepSeek R1 (Full)', params: 671, activeParams: 671, tps: { 'RTX PRO 6000 Blackwell Server': 0, 'H100 80GB': 12, 'H200 141GB': 25, 'B200 192GB': 45, 'B300 288GB': 55 } },
+  { name: 'DeepSeek V3', params: 671, activeParams: 37, tps: { 'RTX PRO 6000 Blackwell Server': 0, 'H100 80GB': 15, 'H200 141GB': 30, 'B200 192GB': 50, 'B300 288GB': 65 } },
+  { name: 'Qwen3-235B-A22B', params: 235, activeParams: 22, tps: { 'RTX PRO 6000 Blackwell Server': 6, 'H100 80GB': 40, 'H200 141GB': 50, 'B200 192GB': 75, 'B300 288GB': 90 } },
+  { name: 'Qwen2.5-72B', params: 72, activeParams: 72, tps: { 'RTX PRO 6000 Blackwell Server': 18, 'H100 80GB': 55, 'H200 141GB': 55, 'B200 192GB': 80, 'B300 288GB': 100 } },
+  { name: 'Llama 3 8B', params: 8, activeParams: 8, tps: { 'RTX PRO 6000 Blackwell Server': 150, 'H100 80GB': 90, 'H200 141GB': 110, 'B200 192GB': 150, 'B300 288GB': 180 } },
+  { name: 'Llama 3.3 70B', params: 70, activeParams: 70, tps: { 'RTX PRO 6000 Blackwell Server': 22, 'H100 80GB': 25, 'H200 141GB': 35, 'B200 192GB': 50, 'B300 288GB': 65 } },
+  { name: 'Llama 3.1 405B', params: 405, activeParams: 405, tps: { 'RTX PRO 6000 Blackwell Server': 0, 'H100 80GB': 10, 'H200 141GB': 18, 'B200 192GB': 30, 'B300 288GB': 40 } },
+  { name: 'Mistral Large 3', params: 123, activeParams: 123, tps: { 'RTX PRO 6000 Blackwell Server': 10, 'H100 80GB': 20, 'H200 141GB': 30, 'B200 192GB': 45, 'B300 288GB': 55 } },
 ];

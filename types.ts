@@ -132,10 +132,11 @@ export interface EstimatorGpu {
   name: string;
   vram: number;
   bandwidth: number;
-  fp16: number;
+  fp16?: number;
   fp8?: number;
   fp4?: number;
   price: number;
+  hourlyRate: number;
 }
 
 export interface EstimatorModel {
