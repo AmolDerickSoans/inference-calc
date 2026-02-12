@@ -1,3 +1,4 @@
+
 // Types for LLM Calculator
 export interface LlmGpuInfo {
   vram: number;
@@ -32,9 +33,9 @@ export interface LlmCalculationResult {
   tps: number;
   tokensPerHour: number;
   revenuePerHour: number;
-  profitLossPerHour: number; // Note: This is calculated at 100% utilization
+  profitLossPerHour: number;
   profitLossPerMonth: number;
-  // FIX: Added utilization and markup to fix errors in ResultTable.tsx
+  monthlyRevenue: number;
   utilization: number;
   markup: number;
 }
@@ -94,19 +95,10 @@ export interface IvCalculationResult {
   marginPct: number;
   unitsPerHour: number;
   revenuePerHour: number;
-  profitPerHour: number; // Note: This is calculated at 100% utilization
-  profitPerMonth: number;
-  isProfitable: boolean;
-}
-
-export interface TopConfig {
-  gpu: string;
-  model: string;
-  profitPerMonth: number;
   profitPerHour: number;
-  costPerUnit: number;
-  yourPrice: number;
-  throughput: number;
+  profitPerMonth: number;
+  monthlyRevenue: number;
+  isProfitable: boolean;
 }
 
 // Types for Voice Calculator
@@ -133,4 +125,37 @@ export interface VoiceCalculationResult {
   monthlyProfit: number;
   revenuePerHour: number;
   monthlyRevenue: number;
+}
+
+// --- NEW GPU ESTIMATOR TYPES ---
+export interface EstimatorGpu {
+  name: string;
+  vram: number;
+  bandwidth: number;
+  fp16: number;
+  fp8?: number;
+  fp4?: number;
+  price: number;
+}
+
+export interface EstimatorModel {
+  name: string;
+  params: number;
+  activeParams?: number;
+  tps: {
+    [gpuName: string]: number;
+  };
+}
+
+export interface EstimatorResult {
+  dailyTokens: number;
+  peakToks: number;
+  modelMemory: number;
+  numGpusMem: number;
+  numGpusThroughput: number;
+  finalGpuCount: number;
+  scalingEfficiency: number;
+  estimatedClusterCost: number;
+  costPerMTok: number;
+  constraintType: 'Memory' | 'Throughput';
 }
